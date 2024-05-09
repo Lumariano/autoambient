@@ -2,7 +2,7 @@ addon.name      = 'autoambient';
 addon.author    = 'Lumaro';
 addon.version   = '1.0';
 addon.desc      = 'Save and apply ambient lighting settings automatically on a per-zone basis.'
-addon.link      = '';
+addon.link      = 'https://github.com/Lumariano/autoambient';
 
 require('common');
 local chat      = require('chat');
