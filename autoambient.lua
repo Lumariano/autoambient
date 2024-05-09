@@ -168,7 +168,6 @@ ashita.events.register('command', 'command_cb', function (e)
     print_help(true);
 end);
 
---
 ashita.events.register('packet_in', 'packet_in_cb', function (e)
     if (e.id == 0x000A) then
         coroutine.sleep(1);
