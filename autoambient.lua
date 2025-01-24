@@ -198,7 +198,7 @@ ashita.events.register("command", "command_cb", function (e)
         autoambient.settings.default_green = g;
         autoambient.settings.default_blue = b;
         autoambient.settings.default_d3dcolor = math.d3dcolor(255, r, g, b);
-        AshitaCore:GetProperties():SetD3DAmbientColor(autoambient.settings.default_d3dcolor);
+        apply_ambient();
         settings.save();
         print(chat.header(addon.name):append(chat.message("Set default ambient color to: "):append(chat.success("rgb(" .. r .. ", " .. g .. ", " .. b .. ")"))));
         return;
