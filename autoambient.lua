@@ -17,7 +17,7 @@ local default_settings = T{
 };
 
 local autoambient = {
-    settings = settings.load(default_settings);
+    settings = settings.load(default_settings),
 };
 
 local function ambient_on(color)
@@ -44,15 +44,15 @@ end
 
 local function print_help(is_error)
     if (is_error) then
-        print(chat.header(addon.name):append(chat.error('Invalid command syntax for command: ')):append(chat.success('/' .. addon.name)));
+        print(chat.header(addon.name):append(chat.error("Invalid command syntax for command: ")):append(chat.success("/" .. addon.name)));
     else
-        print(chat.header(addon.name):append(chat.message('Available commands:')));
+        print(chat.header(addon.name):append(chat.message("Available commands:")));
     end
 
     local cmds = T{
         { "/autoambient help",                "Displays the addons help information." },
-        { "/autoambient zone <r> <g> <b>",    "Sets the current zone's ambient color." },
-        { "/autoambient zone",                "Lists the current zone's ambient color, if configured." },
+        { "/autoambient zone <r> <g> <b>",    "Sets the current zone"s ambient color." },
+        { "/autoambient zone",                "Lists the current zone"s ambient color, if configured." },
         { "/autoambient remove",              "Removes the current zone from configuration." },
         { "/autoambient list",                "Lists all configured zones." },
         { "/autoambient default",             "Lists the default ambient color." },
@@ -60,7 +60,7 @@ local function print_help(is_error)
     };
 
     cmds:ieach(function (v)
-        print(chat.header(addon.name):append(chat.error('Usage: ')):append(chat.message(v[1]):append(' - ')):append(chat.color1(6, v[2])));
+        print(chat.header(addon.name):append(chat.error("Usage: ")):append(chat.message(v[1]):append(" - ")):append(chat.color1(6, v[2])));
     end);
 end
 
