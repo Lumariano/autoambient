@@ -51,8 +51,8 @@ local function print_help(is_error)
 
     local cmds = T{
         { "/autoambient help",                "Displays the addons help information." },
-        { "/autoambient zone <r> <g> <b>",    "Sets the current zone"s ambient color." },
-        { "/autoambient zone",                "Lists the current zone"s ambient color, if configured." },
+        { "/autoambient zone <r> <g> <b>",    "Sets the current zone's ambient color." },
+        { "/autoambient zone",                "Lists the current zone's ambient color, if configured." },
         { "/autoambient remove",              "Removes the current zone from configuration." },
         { "/autoambient list",                "Lists all configured zones." },
         { "/autoambient default",             "Lists the default ambient color." },
