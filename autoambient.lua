@@ -1,37 +1,45 @@
-addon.name      = 'autoambient';
-addon.author    = 'Lumaro';
-addon.version   = '1.0';
-addon.desc      = 'Save and apply ambient lighting settings automatically on a per-zone basis.'
-addon.link      = 'https://github.com/Lumariano/autoambient';
+addon.name    = "autoambient";
+addon.author  = "Lumaro";
+addon.version = "1.1";
+addon.desc    = "Save and apply ambient lighting settings automatically on a per-zone basis.";
+addon.link    = "https://github.com/Lumariano/autoambient";
 
-require('common');
-local chat      = require('chat');
-local settings  = require('settings');
+require("common");
+local chat     = require("chat");
+local settings = require("settings");
 
 local default_settings = T{
-    default_ambient_color = 0xFFFFFFFF,
-    zones = T{ },
+    default_red = 255,
+    default_green = 255,
+    default_blue = 255,
+    default_d3dcolor = math.d3dcolor(255, 255, 255, 255),
+    zones = { },
 };
 
-local autoambient = T{
-    settings = settings.load(default_settings),
+local autoambient = {
+    settings = settings.load(default_settings);
 };
 
-local function on_zone_change()
-    local k = autoambient.settings.zones:find_if(function (v)
-        local zone_id = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0);
-        local zone_name = AshitaCore:GetResourceManager():GetString('zones.names', zone_id);
-        return v[1] == zone_name;
-    end);
+local function ambient_on(color)
+    AshitaCore:GetProperties():SetD3DAmbientColor(color);
+    AshitaCore:GetProperties():SetD3DAmbientEnabled(true);
+end
 
-    if (k ~= nil) then
-        local ambient_color = autoambient.settings.zones[k][2];
-        AshitaCore:GetProperties():SetD3DAmbientColor(ambient_color);
-        AshitaCore:GetProperties():SetD3DAmbientEnabled(true);
-    else
-        AshitaCore:GetProperties():SetD3DAmbientEnabled(false);
-        AshitaCore:GetProperties():SetD3DAmbientColor(autoambient.settings.default_ambient_color);
+local function ambient_off()
+    AshitaCore:GetProperties():SetD3DAmbientEnabled(false);
+    AshitaCore:GetProperties():SetD3DAmbientColor(autoambient.settings.default_d3dcolor);
+end
+
+local function apply_ambient()
+    local zone_id = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0);
+    local zone = autoambient.settings.zones[zone_id];
+
+    if (zone == nil) then
+        ambient_off();
+        return;
     end
+
+    ambient_on(zone.d3dcolor);
 end
 
 local function print_help(is_error)
@@ -42,11 +50,13 @@ local function print_help(is_error)
     end
 
     local cmds = T{
-        { '/autoambient <r> <g> <b>', 'Adds / Reconfigures the current zone.' },
-        { '/autoambient help', 'Displays the addons help information.' },
-        { '/autoambient remove', 'Removes the current zone.' },
-        { '/autoambient default <r> <g> <b>', 'Sets the ambient color to be used in other zones.' },
-        { '/autoambient list', 'Lists all configured zones.' }
+        { "/autoambient help",                "Displays the addons help information." },
+        { "/autoambient zone <r> <g> <b>",    "Sets the current zone's ambient color." },
+        { "/autoambient zone",                "Lists the current zone's ambient color, if configured." },
+        { "/autoambient remove",              "Removes the current zone from configuration." },
+        { "/autoambient list",                "Lists all configured zones." },
+        { "/autoambient default",             "Lists the default ambient color." },
+        { "/autoambient default <r> <g> <b>", "Sets the default ambient color." },
     };
 
     cmds:ieach(function (v)
@@ -54,7 +64,7 @@ local function print_help(is_error)
     end);
 end
 
-settings.register('settings', 'settings_update', function (s)
+settings.register("settings", "settings_update", function (s)
     if (s ~= nil) then
         autoambient.settings = s;
     end
@@ -62,115 +72,137 @@ settings.register('settings', 'settings_update', function (s)
     settings.save();
 end);
 
-ashita.events.register('load', 'load_cb', on_zone_change);
+ashita.events.register("load", "load_cb", function ()
+    if (settings.logged_in == true) then
+        apply_ambient();
+    end
+end);
 
-ashita.events.register('unload', 'unload_cb', function ()
-    AshitaCore:GetProperties():SetD3DAmbientEnabled(false);
-    AshitaCore:GetProperties():SetD3DAmbientColor(autoambient.settings.default_ambient_color);
-    settings.save();
-end)
+ashita.events.register("unload", "unload_cb", function ()
+    ambient_off();
+end);
 
-ashita.events.register('command', 'command_cb', function (e)
+ashita.events.register("packet_in", "packet_in_cb", function (e)
+    if (e.id ~= 0x000A) then
+        return;
+    end
+
+    coroutine.sleep(1);
+    apply_ambient();
+end);
+
+ashita.events.register("command", "command_cb", function (e)
     local args = e.command:args();
 
-    if (#args == 0 or args[1] ~= '/autoambient') then
+    if (#args == 0 or not args[1]:any("/autoambient", "/aa")) then
         return;
     end
 
     e.blocked = true;
 
-    if (#args == 4) then
-        local r = args[2]:num_or(255);
-        local g = args[3]:num_or(255);
-        local b = args[4]:num_or(255);
-        local ambient_color = math.d3dcolor(255, r, g, b);
-
-        local zone_id = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0);
-        local zone_name = AshitaCore:GetResourceManager():GetString('zones.names', zone_id);
-
-        local k = autoambient.settings.zones:find_if(function (v)
-            return v[1] == zone_name;
-        end);
-
-        if (k ~= nil) then
-            autoambient.settings.zones[k][2] = ambient_color;
-            settings.save();
-
-            AshitaCore:GetProperties():SetD3DAmbientColor(ambient_color);
-            AshitaCore:GetProperties():SetD3DAmbientEnabled(true);
-
-            print(chat.header(addon.name)
-                :append(chat.message('Updated '))
-                :append(chat.success('%s'))
-                :append(chat.message(' ambient lighting color.')):fmt(zone_name));
-            return;
-        end
-
-        AshitaCore:GetProperties():SetD3DAmbientColor(ambient_color);
-        AshitaCore:GetProperties():SetD3DAmbientEnabled(true);
-        autoambient.settings.zones:append({ zone_name, ambient_color });
-        settings.save();
-
-        print(chat.header(addon.name):append(chat.message('Added zone: ')):append(chat.success(zone_name)));
-        return;
-    end
-
-    if (#args == 2 and args[2] == 'help') then
+    if (#args == 2 and args[2] == "help") then
         print_help(false);
         return;
     end
 
-    if (#args == 2 and args[2] == 'remove') then
-        local zone_id = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0);
-        local zone_name = AshitaCore:GetResourceManager():GetString('zones.names', zone_id);
+    if (#args == 5 and args[2] == "zone") then
+        r = args[3]:tonumber();
+        g = args[4]:tonumber();
+        b = args[5]:tonumber();
 
-        local k = autoambient.settings.zones:find_if(function (v)
-            return v[1] == zone_name;
-        end);
-
-        if (k == nil) then
-            print(chat.header(addon.name):append(chat.error('This zone has not been configured.')));
+        if (r == nil or g == nil or b == nil) then
+            print(chat.header(addon.name):append(chat.message("Could not set zone's ambient color: "):append(chat.error("at least one argument was not a number!"))))
             return;
         end
 
-        AshitaCore:GetProperties():SetD3DAmbientEnabled(false);
-        AshitaCore:GetProperties():SetD3DAmbientColor(autoambient.settings.default_ambient_color);
+        r = r:clamp(0, 255);
+        g = g:clamp(0, 255);
+        b = b:clamp(0, 255);
 
-        autoambient.settings.zones:remove(k);
+        local zone_id = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0);
+        local zone_name = AshitaCore:GetResourceManager():GetString("zones.names", zone_id);
+
+        autoambient.settings.zones[zone_id] = {
+            name = zone_name,
+            red = r,
+            green = g,
+            blue = b,
+            d3dcolor = math.d3dcolor(255, r, g, b),
+        };
+
+        ambient_on(autoambient.settings.zones[zone_id].d3dcolor);
         settings.save();
-
-        print(chat.header(addon.name):append(chat.message('Removed zone: ')):append(chat.success(zone_name)));
+        print(chat.header(addon.name):append(chat.message("Set " .. zone_name .. " ambient color to: "):append(chat.success("rgb(" .. r .. ", " .. g .. ", " .. b .. ")"))));
         return;
     end
 
-    if(#args == 5 and args[2] == 'default') then
-        local r = args[3]:num_or(255);
-        local g = args[4]:num_or(255);
-        local b = args[5]:num_or(255);
-        local ambient_color = math.d3dcolor(255, r, g, b);
+    if (#args == 2 and args[2] == "zone") then
+        local zone_id = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0);
+        local zone = autoambient.settings.zones[zone_id];
 
-        autoambient.settings.default_ambient_color = ambient_color
-        AshitaCore:GetProperties():SetD3DAmbientColor(ambient_color);
+        if (zone == nil) then
+            print(chat.header(addon.name):append(chat.message("Could not list zone: "):append(chat.error("this zone has not been configured"))));
+            return;
+        end
 
-        print(chat.header(addon.name):append(chat.success('Updated default ambient lighting color.')));
+        print(chat.header(addon.name):append(chat.message(zone.name .. " ambient color is set to: rgb(" .. zone.red .. ", " .. zone.green .. ", " .. zone.blue .. ")")));
         return;
     end
 
-    if (#args == 2 and args[2] == 'list') then
-        print(chat.header(addon.name):append('Configured zones:'));
+    if (#args == 2 and args[2] == "remove") then
+        local zone_id = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0);
+        local zone = autoambient.settings.zones[zone_id];
 
-        autoambient.settings.zones:ieach(function (v)
-            print(chat.header(addon.name):append(chat.success(v[1])));
-        end);
+        if (zone == nil) then
+            print(chat.header(addon.name):append(chat.message("Could not remove zone: "):append(chat.error("this zone has not been configured"))));
+            return;
+        end
+
+        autoambient.settings.zones[zone_id] = nil;
+        ambient_off();
+        settings.save();
+        print(chat.header(addon.name):append(chat.message("Removed zone: "):append(chat.success(zone.name))))
+        return;
+    end
+
+    if (#args == 2 and args[2] == "list") then
+        print(chat.header(addon.name):append(chat.message("Configured zones:")));
+        
+        for _, zone in pairs(autoambient.settings.zones) do
+            print(chat.header(addon.name):append(chat.message(zone.name .. " : " .. "rgb(" .. zone.red .. ", " .. zone.green .. ", " .. zone.blue .. ")")));
+        end
+
+        return;
+    end
+
+    if (#args == 2 and args[2] == "default") then
+        print(chat.header(addon.name):append(chat.message("The default ambient color is set to: rgb(" .. autoambient.settings.default_red .. ", " .. autoambient.settings.default_green .. ", " .. autoambient.settings.default_blue .. ")")));
+        return;
+    end
+
+    if (#args == 5 and args[2] == "default") then
+        r = args[3]:tonumber();
+        g = args[4]:tonumber();
+        b = args[5]:tonumber();
+
+        if (r == nil or g == nil or b == nil) then
+            print(chat.header(addon.name):append(chat.message("Could not set default ambient color: "):append(chat.error("at least one argument was not a number!"))))
+            return;
+        end
+
+        r = r:clamp(0, 255);
+        g = g:clamp(0, 255);
+        b = b:clamp(0, 255);
+
+        autoambient.settings.default_red = r;
+        autoambient.settings.default_green = g;
+        autoambient.settings.default_blue = b;
+        autoambient.settings.default_d3dcolor = math.d3dcolor(255, r, g, b);
+        AshitaCore:GetProperties():SetD3DAmbientColor(autoambient.settings.default_d3dcolor);
+        settings.save();
+        print(chat.header(addon.name):append(chat.message("Set default ambient color to: "):append(chat.success("rgb(" .. r .. ", " .. g .. ", " .. b .. ")"))));
         return;
     end
 
     print_help(true);
-end);
-
-ashita.events.register('packet_in', 'packet_in_cb', function (e)
-    if (e.id == 0x000A) then
-        coroutine.sleep(1);
-        on_zone_change();
-    end
 end);
